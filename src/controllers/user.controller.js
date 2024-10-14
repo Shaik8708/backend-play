@@ -14,7 +14,7 @@ const registerUser = asyncHandler(async (req, res) => {
     // }
     //! need to validate for email syntax
 
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         $or: [{email}, {userName}]
     });
 
@@ -23,7 +23,10 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    let coverImageLocalPath;
+    if(req.files?.coverImage){
+        coverImageLocalPath = req.files?.coverImage[0]?.path;
+    }
 
     if(!avatarLocalPath) throw new ApiError(400, "Avatar image is required");
     
