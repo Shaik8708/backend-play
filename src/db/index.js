@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { DB_NAME } from "../constants.js";
+mongoose.set('strictQuery', false);
 
 const connectDB = async () => {
     try {
