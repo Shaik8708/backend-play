@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/api_response.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -311,6 +312,122 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     return res.status(200).json(200, user, "cover image updated succesfully");
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    const {userName} = req.params;
+
+    if(!userName?.trim()) throw new ApiError(400, "Username not found")
+
+    const channel = await User.aggregate([
+        {// match is like a where clause like to get the user or match the user based on id
+            $match: {
+                userName: userName.toLowerCase()
+            }
+        },
+        {// this is to get the subscribers list and add it in the response
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {// this is to get the subscribed to list and add it in the response
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {// this is to get the subscribers count and channel count and is subscribed boolean
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {// this is to decide what data to be sent on the response to avoud load
+            $project: {
+                fullName: 1,
+                userName: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+
+            }
+        }
+    ])
+
+    console.log(channel);
+
+    if(!channel?.length) throw new ApiError(404, "Channel does not exist")
+
+    return res.status(200).json(new ApiResponse(200, channel[0], "User channel fetched succesfully"))
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = await User.aggregate([
+        {// this is to convert string id to mongodb id and get the value by matching the id
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {// this is to get the video id in our user tables watch history object
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {// this is to get the user details of that perticular video 
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {// this is to fetch what all user details to be shown 
+                                    $project: {
+                                        fullName: 1,
+                                        userName: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {// this is to send only the first index of the owner array
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    console.log(user);
+
+    return res.status(200).json(
+        new ApiResponse(200, user[0].watchHistory, "Watch History fetched")
+    )
+})
+
 export {
     registerUser,
     loginUser,
@@ -321,4 +438,6 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 };
