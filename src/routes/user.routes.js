@@ -29,24 +29,24 @@ router.route("/register").post(
         },
     ]),
     registerUser
-);
+);// working
 
-router.route("/login").post(loginUser);
+router.route("/login").post(loginUser);// working
 
 //Secured Routes
-router.route("/logout").post(verifyJWT, logoutUser);
-router.route("/refresh-token").post(refreshAccessToken);
+router.route("/logout").post(verifyJWT, logoutUser);// working
+router.route("/refresh-token").post(refreshAccessToken);// working
 
-router.route("/change-password").post(verifyJWT, changeCurrentPassword);
-router.route("/current-user").get(verifyJWT, getCurrentUser);
-router.route("/update-account").patch(verifyJWT, updateAccountDetails);
+router.route("/change-password").post(verifyJWT, changeCurrentPassword);// working 
+router.route("/current-user").get(verifyJWT, getCurrentUser);// working
+router.route("/update-account").patch(verifyJWT, updateAccountDetails);// works only if we pass both email and fullname 
 router
     .route("/update-avatar")
-    .patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
+    .patch(verifyJWT, upload.single("avatar"), updateUserAvatar);// working
 router
     .route("/update-cover-image")
     .patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage);
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
-router.route("/watch-history").get(verifyJWT, getWatchHistory);
+router.route("/c/:userName").get(verifyJWT, getUserChannelProfile);// working 
+router.route("/watch-history").get(verifyJWT, getWatchHistory);// working
 
 export default router;

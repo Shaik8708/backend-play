@@ -12,9 +12,8 @@ const generateAccessAndRefreshTokens = async (userId) => {
         const accessToken = user.generateAccessToken();
         const refreshToken = user.generateRefreshToken();
 
-        user.refreshToken = refreshToken;
+        user.refreshToken = await refreshToken;
         await user.save({ validateBeforeSave: false });
-
         return { accessToken, refreshToken };
     } catch (error) {
         throw new ApiError(
@@ -151,8 +150,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined,
+            $unset: {
+                refreshToken: 1, // removes field from document
             },
         },
         {
@@ -174,23 +173,21 @@ const logoutUser = asyncHandler(async (req, res) => {
 const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingRefreshToken =
         req.cookies.refreshToken || req.body.refreshToken;
-
-    if (!incomingRefreshToken)
-        throw new ApiError(401, "Unauthorized request while refreshing!");
+    
+    if (!incomingRefreshToken) throw new ApiError(401, "Unauthorized request while refreshing!");
 
     try {
         const decodedToken = jwt.verify(
             incomingRefreshToken,
             process.env.REFRESH_TOKEN_SECRET
         );
-
         const user = await User.findById(decodedToken._id);
 
         if (!user) throw new ApiError(401, "Invalid refresh token");
 
-        if (incomingRefreshToken !== user.refreshToken)
-            throw new ApiError(401, "Refresh token is expired or invalid");
-
+        if (incomingRefreshToken !== user.refreshToken) throw new ApiError(401, "Refresh token is expired or invalid");
+        
+            
         const options = {
             httpOnly: true,
             secure: true,
@@ -238,7 +235,15 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-    res.status(200, req.user, "Current user fetched succesfully");
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            req.user, 
+            "Current user fetched succesfully"
+        )
+    );
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -269,7 +274,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     const avatarLocalPath = req.file?.path;
     if (!avatarLocalPath) throw new ApiError(400, "file missing avatar");
 
-    const avater = await uploadOnCloudinary(avatarLocalPath);
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
 
     if (!avatar) throw new ApiError(400, "error while uploading on avataer");
 
@@ -277,7 +282,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         req.user?._id,
         {
             $set: {
-                avatar: avater.url,
+                avatar: avatar.url,
             },
         },
         {
@@ -285,7 +290,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         }
     ).select("-password -refreshToken");
 
-    return res.status(200).json(200, user, "avatar updated succesfully");
+    return res.status(200).json(new ApiResponse(200, user, "avatar updated succesfully"));
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
@@ -309,7 +314,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         }
     ).select("-password -refreshToken");
 
-    return res.status(200).json(200, user, "cover image updated succesfully");
+    return res.status(200).json(new ApiResponse(200, user, "cover image updated succesfully"));
 });
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
@@ -369,9 +374,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
             }
         }
-    ])
-
-    console.log(channel);
+    ]);
 
     if(!channel?.length) throw new ApiError(404, "Channel does not exist")
 
@@ -419,9 +422,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                 ]
             }
         }
-    ])
-
-    console.log(user);
+    ]);
 
     return res.status(200).json(
         new ApiResponse(200, user[0].watchHistory, "Watch History fetched")
